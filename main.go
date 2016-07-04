@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -54,7 +53,7 @@ type Stream struct {
 type Query struct {
 	Id                 string `json:"queryId"`
 	MessageId          int64  `json:"messageId"`
-	messageIdNewerThan int64  `json:"messageIdNewerThan"`
+	MessageIdNewerThan int64  `json:"messageIdNewerThan"`
 	NameLike           string `json:"nameLike"`
 	BodyRegex          string `json:"bodyRegex"`
 	TargetStreamId     string `json:"targetStreamId"`
@@ -134,14 +133,14 @@ func saveToDatabase(message Message, db *pg.DB) (int64, error) {
 func queryDatabase(query Query, db *pg.DB) (*[]Message, error) {
 	var msgs []Message
 	sqlQuery := db.Model(&msgs)
-	if query.messageIdNewerThan != 0 && query.MessageId != 0 {
+	if query.MessageIdNewerThan != 0 && query.MessageId != 0 {
 		return &msgs, errors.New("Only one of messageIdNewerThan and messageId should be set.")
 	}
 	if query.MessageId != 0 {
 		sqlQuery = sqlQuery.Where("id = ?", query.MessageId)
 		//log.Println("Applying WHERE id =", query.MessageId)
-	} else if query.messageIdNewerThan != 0 {
-		sqlQuery = sqlQuery.Where("id > ?", query.messageIdNewerThan)
+	} else if query.MessageIdNewerThan != 0 {
+		sqlQuery = sqlQuery.Where("id > ?", query.MessageIdNewerThan)
 		//log.Println("Applying WHERE id >", query.messageIdNewerThan)
 	}
 	if len(query.NameLike) > 0 {
@@ -239,7 +238,7 @@ func querySubmissionHandler(c echo.Context) error {
 	if len(query.Id) != 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Id should be empty"})
 	}
-	if query.messageIdNewerThan < 0 {
+	if query.MessageIdNewerThan < 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "messageIdNewerThan should not be a negative number"})
 	}
 	// TODO(daeyun): Check if regex is valid. Also check for duplicates.
