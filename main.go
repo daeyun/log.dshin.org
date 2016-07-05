@@ -193,6 +193,7 @@ func newMessageHandler(c echo.Context) error {
 			for i := range v.queries {
 				query := v.queries[i]
 				query.MessageId = message.Id
+				// TODO(daeyun): This is too slow.
 				result, err := queryDatabase(query, db)
 				//log.Println("Results found: ", result)
 				if err == nil && len(*result) != 0 {
@@ -246,13 +247,25 @@ func querySubmissionHandler(c echo.Context) error {
 	str, _ := json.Marshal(query)
 	hash.Write(str)
 	query.Id = strconv.FormatUint(hash.Sum64(), 36) // [0-9a-z]+
+	startTime := time.Now()
 
 	activeStreams.Lock()
 	defer activeStreams.Unlock()
 	if stream, ok := activeStreams.streams[query.TargetStreamId]; ok {
 		stream.queries = append(stream.queries, *query)
-		// TODO(daeyun): launch worker to query db and write to channel.
-		return c.JSON(http.StatusOK, map[string]string{"queryId": query.Id})
+		// This probably takes a while.
+		messages, err := queryDatabase(*query, db)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		stream.channel <- QueryResults{
+			Messages: *messages,
+			QueryIds: []string{query.Id},
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"queryId": query.Id,
+			"elapsed": time.Since(startTime).Nanoseconds() / 1000,
+		})
 	}
 	return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid stream id"})
 }

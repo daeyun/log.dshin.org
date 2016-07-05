@@ -2,16 +2,72 @@ $(function() {
     var loc = window.location;
     var uri = 'ws://localhost:8080/log/stream';
 
-    Cookies.set('accessToken', 'eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0Njc2NzcyMDN9.9P-Qa3FwVMYpt3vSy_3neSQp7ZpShXFWvXwKv2vudeubFHot_lkiDKmCJ2G86pL1', { expires: 7 });
-
-    ws = new WebSocket(uri);
-
-    ws.onopen = function() {
-        console.log('Connected')
+    function streamInitFn(token, streamId) {
+        id = sendLog(token, {
+            "name":"33th is name",
+            "body":"thdy"
+        });
+        queryId = sendQuery(token, streamId, {
+            "nameLike":"%",
+            "bodyRegex":"^this.*$",
+            "newerThan": 0
+        });
+        for (var i = 0; i < 100; i++) {
+            id = sendLog(token, {
+                "name":"one",
+                "body":"two"
+            });
+            id = sendLog(token, {
+                "name":"this is name",
+                "body":"this is body"
+            });
+        }
+        unsubscribe(token, queryId);
+        id = sendLog(token, {
+            "name":"this is name",
+            "body":"this is body. and should not appear."
+        });
+        id = sendLog(token, {
+            "name":"this is name. should not appear.",
+            "body":"this is body. and should not appear."
+        });
+        queryId = sendQuery(token, streamId, {
+            "nameLike":"%",
+            "bodyRegex":"^this.*$",
+            "newerThan": 0
+        });
+        id = sendLog(token, {
+            "name":"this is name.",
+            "body":"this is body. this should show up."
+        });
     }
 
-    ws.onclose = function() {
-        console.log('Closed')
+    function initWebsocket(token) {
+        Cookies.set('accessToken', token, { expires: 1 });
+        ws = new WebSocket(uri);
+
+        ws.onopen = function() {
+            console.log('Connected')
+        }
+
+        ws.onclose = function() {
+            console.log('Closed')
+        }
+
+        ws.onmessage = function(evt) {
+            //console.log(evt.data);
+            var out = document.getElementById('output');
+            out.innerHTML += evt.data + '<br>';
+            var obj = JSON.parse(evt.data);
+            if (obj['ping']) {
+                ws.send(JSON.stringify({
+                    pong: obj['ping']
+                }));
+                console.log('Sent pong')
+            } else if (obj['streamId']) {
+                streamInitFn(token, obj['streamId']);
+            }
+        }
     }
 
     function login(accessKey) {
@@ -97,70 +153,18 @@ $(function() {
         return elapsed;
     }
 
-    streamInitFn = function(streamId) {
-        token = login("123");
-        id = sendLog(token, {
-            "name":"33th is name",
-            "body":"thdy"
-        });
-        queryId = sendQuery(token, streamId, {
-            "nameLike":"%",
-            "bodyRegex":"^this.*$",
-            "newerThan": 0
-        });
-        for (var i = 0; i < 100; i++) {
-            id = sendLog(token, {
-                "name":"one",
-                "body":"two"
-            });
-            id = sendLog(token, {
-                "name":"this is name",
-                "body":"this is body"
-            });
-        }
-        unsubscribe(token, queryId);
-        id = sendLog(token, {
-            "name":"this is name",
-            "body":"this is body. and should not appear."
-        });
-        id = sendLog(token, {
-            "name":"this is name. should not appear.",
-            "body":"this is body. and should not appear."
-        });
-        queryId = sendQuery(token, streamId, {
-            "nameLike":"%",
-            "bodyRegex":"^this.*$",
-            "newerThan": 0
-        });
-        id = sendLog(token, {
-            "name":"this is name.",
-            "body":"this is body. this should show up."
-        });
-    }
 
-    ws.onmessage = function(evt) {
-        //console.log(evt.data);
-        var out = document.getElementById('output');
-        out.innerHTML += evt.data + '<br>';
-        var obj = JSON.parse(evt.data);
-        if (obj['ping']) {
-            ws.send(JSON.stringify({
-                pong: obj['ping']
-            }));
-            console.log('Sent pong')
-        } else if (obj['streamId']) {
-            streamInitFn(obj['streamId']);
-        }
-    }
+    token = login("123");
+    initWebsocket(token);
 
-    var query = {
+    //var query = {
         // accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0Njc1ODM3MzJ9.MSooniWpKGz1U9PrhkW8u5K2poysTQ0kHo6WHTTOf_s',
-        accessToken: 'eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0Njc2NzcyMDN9.9P-Qa3FwVMYpt3vSy_3neSQp7ZpShXFWvXwKv2vudeubFHot_lkiDKmCJ2G86pL1',
-        regex: 'hi2',
-        startTime: 42,
-    }
+        //accessToken: 'eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0Njc2NzcyMDN9.9P-Qa3FwVMYpt3vSy_3neSQp7ZpShXFWvXwKv2vudeubFHot_lkiDKmCJ2G86pL1',
+        //regex: 'hi2',
+        //startTime: 42,
+    //}
 
     //setInterval(function() {
-        //ws.send(JSON.stringify(query));
+    //ws.send(JSON.stringify(query));
     //}, 1000);
 });
